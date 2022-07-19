@@ -1,0 +1,3 @@
+[submodule "1090parser"]
+	path = 1090parser
+	url = https://github.com/encryptededdy/python-dump1090-parser.git
