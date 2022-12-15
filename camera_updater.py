@@ -63,4 +63,4 @@ while True:
 	# Prepare next loop
 	loop_elapsed = time.time() - loop_start_time
 	print(f"Loop took {loop_elapsed} seconds")
-	time.sleep(max((3 - loop_elapsed), 0))
+	time.sleep(max((config.interval - loop_elapsed), 0))
