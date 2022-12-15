@@ -2,6 +2,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
+adsb.txt
+config.py
 
 # C extensions
 *.so
