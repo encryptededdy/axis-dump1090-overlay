@@ -7,59 +7,77 @@ from geojson import Point, Polygon, Feature
 import requests
 
 last_set = None
-counter = 0
 
 def make_camera_request(string):
 	jsonBody = {
 	"apiVersion": "1.0",
 	"method": "setText",
 	"params": {
-		"identity": 4,
+		"camera": 1,
+		"identity": 5,
 		"text": string
 	}
 	}
 	requests.post(config.camera1_overlay_url, json=jsonBody, auth=HTTPDigestAuth(config.camera1_username, config.camera1_pass))
 	print(f"Set to {string}")
 
-def update_camera(flight):
-	global counter
-	global last_set
-	if flight is not None:
-		ident = flight.ident
-		altitude = flight.alt_geom
-		last_set = ident
-		make_camera_request(f"Aircraft ID\nCallsign: {ident}\nAltitude: {altitude}ft")
-		counter = 0
-	else:
-		counter += 1
-		if counter > 5 and last_set is not None:
-			counter = 0
-			make_camera_request("Aircraft ID\nNot Seen")
-			last_set = None
-
-def is_inside_poly(aircraft, poly):
+def is_inside_poly_max_alt(aircraft, poly, max_alt):
 	if not(isinstance(aircraft.lat, float) and isinstance(aircraft.lon, float)):
 		return False
-	ac_location = Feature(geometry=Point((aircraft.lat, aircraft.lon)))
-	return boolean_point_in_polygon(ac_location, poly)
+	ac_location = Feature(geometry=Point((aircraft.lon, aircraft.lat)))
+	return boolean_point_in_polygon(ac_location, poly) and (aircraft.alt_baro == "ground" or int(aircraft.alt_baro) < max_alt)
 
 
-def find_flights(aircrafts):
-	# Just checking 16R for now
-	aircrafts_16r = list(filter(lambda x: is_inside_poly(x, config.syd_16r_land), parse1090.in_sky_and_ident(aircrafts)))
-	if len(aircrafts_16r) > 1:
-		aircrafts_16r.sort(key=lambda x:x.alt_baro)
-	if len(aircrafts_16r) > 0:
-		return aircrafts_16r[0]
+def find_flight_34L(aircrafts):
+	aircrafts_34l = list(filter(lambda x: is_inside_poly_max_alt(x, config.syd_34L, 1000), parse1090.with_ident(aircrafts, True)))
+	if len(aircrafts_34l) > 1:
+		aircrafts_34l.sort(key=lambda x:x.lat) # southernmost should be first, as it's aesc
+	if len(aircrafts_34l) > 0:
+		return f"{aircrafts_34l[0].ident.rstrip()} ({aircrafts_34l[0].alt_baro}ft)"
 	else:
-		return None
+		return ""
+	
+def find_flight_16L(aircrafts):
+	aircrafts_16l = list(filter(lambda x: is_inside_poly_max_alt(x, config.syd_16L, 1000), parse1090.with_ident(aircrafts, True)))
+	if len(aircrafts_16l) > 1:
+		aircrafts_16l.sort(key=lambda x:x.lat) # southernmost should be first, as it's aesc
+	if len(aircrafts_16l) > 0:
+		return f"{aircrafts_16l[0].ident.rstrip()} ({aircrafts_16l[0].alt_baro}ft)"
+	else:
+		return ""
+	
+def find_flight_taxiway(aircrafts):
+	aircrafts_taxi = list(filter(lambda x: is_inside_poly_max_alt(x, config.syd_taxi_alpha, 1000), parse1090.with_ident(aircrafts, True)))
+	aircrafts_taxi.sort(key=lambda x:x.lat) # southernmost should be first, as it's aesc
+	if len(aircrafts_taxi) > 0:
+		return ", ".join(str(x.ident.rstrip()) for x in aircrafts_taxi)
+	else:
+		return ""
+
+def find_flight_25_final(aircrafts):
+	aircrafts_25 = list(filter(lambda x: is_inside_poly_max_alt(x, config.syd_25_approach, 1000), parse1090.with_ident(aircrafts, True)))
+	if len(aircrafts_25) > 1:
+		aircrafts_25.sort(key=lambda x:x.alt_baro) # lowest should be first, as it's aesc
+	if len(aircrafts_25) > 0:
+		return f"{aircrafts_25[0].ident.rstrip()} ({aircrafts_25[0].alt_baro}ft)"
+	else:
+		return ""
 	
 while True:
 	loop_start_time = time.time()
-	aircraft = parse1090.parse_aircraft(config.adsb_url)
+	try:
+		aircraft = parse1090.parse_aircraft(config.adsb_url)
+		string_34l = find_flight_34L(aircraft)
+		string_16l = find_flight_16L(aircraft)
+		string_taxi = find_flight_taxiway(aircraft)
+		string_25 = find_flight_25_final(aircraft)
+		combined_str = f"{string_taxi}\n{string_34l}\n{string_16l}\n{string_25}"
+	except:
+		combined_str = "dump1090\nerror\n:("
 	# print(aircraft) 
-	flight = find_flights(aircraft)
-	update_camera(flight)
+	if combined_str != last_set:
+		make_camera_request(combined_str)
+		last_set = combined_str
 	# Prepare next loop
 	loop_elapsed = time.time() - loop_start_time
 	print(f"Loop took {loop_elapsed} seconds")
