@@ -67,10 +67,11 @@ while True:
 	loop_start_time = time.time()
 	try:
 		aircraft = parse1090.parse_aircraft(config.adsb_url)
-		string_34l = find_flight_34L(aircraft)
-		string_16l = find_flight_16L(aircraft)
-		string_taxi = find_flight_taxiway(aircraft)
-		string_25 = find_flight_25_final(aircraft)
+		# force 15char to reduce flickering on resize
+		string_34l = find_flight_34L(aircraft).ljust(15)
+		string_16l = find_flight_16L(aircraft).ljust(15)
+		string_taxi = find_flight_taxiway(aircraft).ljust(15)
+		string_25 = find_flight_25_final(aircraft).ljust(15)
 		combined_str = f"{string_taxi}\n{string_34l}\n{string_16l}\n{string_25}"
 	except:
 		combined_str = "dump1090\nerror\n:("
