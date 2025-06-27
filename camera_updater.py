@@ -8,7 +8,7 @@ import requests
 
 last_set = None
 
-def make_camera_request(string):
+def make_camera_request_1(string):
 	jsonBody = {
 	"apiVersion": "1.0",
 	"method": "setText",
@@ -20,6 +20,19 @@ def make_camera_request(string):
 	}
 	requests.post(config.camera1_overlay_url, json=jsonBody, auth=HTTPDigestAuth(config.camera1_username, config.camera1_pass))
 	print(f"Set to {string}")
+
+def make_camera_request_2(string):
+	jsonBody = {
+	"apiVersion": "1.0",
+	"method": "setText",
+	"params": {
+		"camera": 1,
+		"identity": 3,
+		"text": string
+	}
+	}
+	requests.post(config.camera2_overlay_url, json=jsonBody, auth=HTTPDigestAuth(config.camera2_username, config.camera2_pass))
+	print(f"Set 2 to {string}")
 
 def is_inside_poly_max_alt(aircraft, poly, max_alt):
 	if not(isinstance(aircraft.lat, float) and isinstance(aircraft.lon, float)):
@@ -72,13 +85,16 @@ while True:
 		string_16l = find_flight_16L(aircraft).ljust(15)
 		string_taxi = find_flight_taxiway(aircraft).ljust(15)
 		string_25 = find_flight_25_final(aircraft).ljust(15)
-		combined_str = f"{string_taxi}\n{string_34l}\n{string_16l}\n{string_25}"
+		combined_str_cam1 = f"{string_taxi}\n{string_34l}\n{string_16l}\n{string_25}"
+		combined_str_cam2 = f"{string_taxi}\n{string_34l}\n{string_16l}"
 	except:
-		combined_str = "dump1090\nerror\n:("
+		combined_str_cam1 = "dump1090\nerror\n:("
+		combined_str_cam2 = "dump1090\nerror\n:("
 	# print(aircraft) 
-	if combined_str != last_set:
-		make_camera_request(combined_str)
-		last_set = combined_str
+	if combined_str_cam1 != last_set:
+		make_camera_request_1(combined_str_cam1)
+		make_camera_request_2(combined_str_cam2)
+		last_set = combined_str_cam1
 	# Prepare next loop
 	loop_elapsed = time.time() - loop_start_time
 	print(f"Loop took {loop_elapsed} seconds")
